@@ -189,7 +189,7 @@ with col1:
     st.session_state.fator_espacamento = st.slider(
         "Espaçamento entre frases", 
         min_value=0.8, 
-        max_value=2.0, 
+        max_value=3.0, 
         value=st.session_state.fator_espacamento,
         step=0.1,
         help="Ajuste o espaçamento entre as frases (1.0 = normal, 2.0 = dobro do espaço)"
