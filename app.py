@@ -10,7 +10,7 @@ from pathlib import Path
 # Configurações do aplicativo
 st.set_page_config(page_title="Gerador de Posts em Massa", layout="wide")
 
-def carregar_fonte(tamanho=48):
+def carregar_fonte(tamanho=30):
     """Tenta carregar a fonte Nexa Extra Bold ou usa uma fonte padrão disponível"""
     try:
         # Tenta carregar com o nome correto do arquivo
@@ -45,7 +45,7 @@ def adicionar_texto(imagem, textos, tamanho_fonte):
     espacamento = int(tamanho_fonte * st.session_state.fator_espacamento)
     
     # Posição inicial para as frases (parte inferior da imagem)
-    posicao_y_inicial = altura - (250 + (tamanho_fonte - 48) // 2)  # Ajuste baseado no tamanho da fonte
+    posicao_y_inicial = altura - (250 + (tamanho_fonte - 30) // 2)  # Ajuste baseado no tamanho da fonte
     
     # Adiciona até três frases
     for i, texto in enumerate(textos[:3]):
@@ -124,9 +124,9 @@ if 'deslocamento_x' not in st.session_state:
 if 'qualidade_jpeg' not in st.session_state:
     st.session_state.qualidade_jpeg = 90
 if 'tamanho_fonte' not in st.session_state:
-    st.session_state.tamanho_fonte = 48
+    st.session_state.tamanho_fonte = 30
 if 'fator_espacamento' not in st.session_state:
-    st.session_state.fator_espacamento = 1.3
+    st.session_state.fator_espacamento = 2.0
 if 'redimensionar_fundo' not in st.session_state:
     st.session_state.redimensionar_fundo = False
 if 'largura_imagem' not in st.session_state:
@@ -179,7 +179,7 @@ with col1:
     # Usa number_input em vez de slider para garantir que o valor seja exato
     st.session_state.tamanho_fonte = st.number_input(
         "Tamanho da fonte (pixels)", 
-        min_value=24, 
+        min_value=4, 
         max_value=96, 
         value=st.session_state.tamanho_fonte,
         help="Ajuste o tamanho da fonte em pixels"
@@ -228,7 +228,7 @@ with col2:
     # Verifica se a fonte está disponível
     try:
         # Tenta carregar a fonte para mostrar mensagem de sucesso
-        fonte_teste = carregar_fonte(48)
+        fonte_teste = carregar_fonte(30)
         if isinstance(fonte_teste, ImageFont.FreeTypeFont):
             st.success("Fonte Nexa Extra Bold carregada com sucesso!")
         else:
