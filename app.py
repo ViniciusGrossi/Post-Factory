@@ -63,7 +63,7 @@ def adicionar_texto(imagem, textos, tamanho_fonte):
         posicao_y = posicao_y_inicial + (i * espacamento)
         
         # Adiciona texto em preto sem sombra branca
-        desenho.text((posicao_x, posicao_y), texto, fill="black", font=fonte)
+        desenho.text((posicao_x, posicao_y), texto, fill='#7a7a7a', font=fonte)
     
     return imagem
 
