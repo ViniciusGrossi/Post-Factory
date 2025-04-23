@@ -55,15 +55,26 @@ def adicionar_texto(imagem, textos, tamanho_fonte):
 
 def processar_imagem(plano_de_fundo, logo, textos, posicao_logo=None):
     """Processa uma única imagem, colando o logo e adicionando o texto"""
-    resultado = plano_de_fundo.copy().convert("RGB")
+    # Cria uma cópia do plano de fundo e mantém o modo original quando possível
+    resultado = plano_de_fundo.copy()
     
+    # Converte para RGB se não estiver em RGB (necessário para salvar como JPEG)
+    if resultado.mode != "RGB":
+        resultado = resultado.convert("RGB")
+    
+    # Redimensiona com alta qualidade se necessário
     if st.session_state.redimensionar_fundo:
-        resultado = resultado.resize((st.session_state.largura_imagem, st.session_state.altura_imagem))
+        resultado = resultado.resize(
+            (st.session_state.largura_imagem, st.session_state.altura_imagem), 
+            Image.LANCZOS  # Usando o método de alta qualidade LANCZOS (antigo ANTIALIAS)
+        )
     
     largura_bg, altura_bg = resultado.size
     largura_padrao = st.session_state.largura_logo
     altura_padrao = st.session_state.altura_logo
-    logo = logo.resize((largura_padrao, altura_padrao))
+    
+    # Redimensiona o logo com alta qualidade
+    logo = logo.resize((largura_padrao, altura_padrao), Image.LANCZOS)
     
     if posicao_logo:
         x, y = posicao_logo
@@ -71,19 +82,36 @@ def processar_imagem(plano_de_fundo, logo, textos, posicao_logo=None):
         x = (largura_bg - largura_padrao) // 2 + st.session_state.deslocamento_x
         y = (altura_bg - altura_padrao) // 2 - st.session_state.deslocamento_y
     
-    resultado.paste(logo, (x, y), logo)
+    # Cola o logo com transparência
+    if logo.mode == 'RGBA':
+        resultado.paste(logo, (x, y), logo)
+    else:
+        # Tenta usar o logo sem canal alfa se não tiver RGBA
+        resultado.paste(logo, (x, y))
+    
     resultado = adicionar_texto(resultado, textos, st.session_state.tamanho_fonte)
     
     return resultado
 
 def get_image_download_link(img, filename, text):
+    """Gera um link para download de uma única imagem"""
     buffered = io.BytesIO()
-    img.save(buffered, format="JPEG")
+    
+    # Salva com otimizações habilitadas e alta qualidade
+    img.save(
+        buffered, 
+        format="JPEG", 
+        quality=st.session_state.qualidade_jpeg,
+        optimize=True,  # Ativa otimizações
+        subsampling=0   # Melhor qualidade de subsampling de cor
+    )
+    
     img_str = base64.b64encode(buffered.getvalue()).decode()
     href = f'<a href="data:file/jpg;base64,{img_str}" download="{filename}">{text}</a>'
     return href
 
 def get_zip_download_link(zip_data, filename, text):
+    """Gera um link para download de um arquivo ZIP"""
     b64 = base64.b64encode(zip_data).decode()
     href = f'<a href="data:application/zip;base64,{b64}" download="{filename}">{text}</a>'
     return href
@@ -98,7 +126,7 @@ if 'deslocamento_y' not in st.session_state:
 if 'deslocamento_x' not in st.session_state:
     st.session_state.deslocamento_x = 0
 if 'qualidade_jpeg' not in st.session_state:
-    st.session_state.qualidade_jpeg = 90
+    st.session_state.qualidade_jpeg = 95  # Aumentei a qualidade padrão para 95%
 if 'tamanho_fonte' not in st.session_state:
     st.session_state.tamanho_fonte = 30
 if 'fator_espacamento' not in st.session_state:
@@ -111,6 +139,8 @@ if 'altura_imagem' not in st.session_state:
     st.session_state.altura_imagem = 1080
 if 'atualizar_preview' not in st.session_state:
     st.session_state.atualizar_preview = True
+if 'qualidade_preview' not in st.session_state:
+    st.session_state.qualidade_preview = "Alta"  # Opção para qualidade da prévia
 
 # Verificação do fundo.jpg
 try:
@@ -136,9 +166,9 @@ with col1:
     if st.session_state.redimensionar_fundo:
         col_w, col_h = st.columns(2)
         with col_w:
-            st.session_state.largura_imagem = st.number_input("Largura (px)", min_value=100, max_value=2000, value=st.session_state.largura_imagem)
+            st.session_state.largura_imagem = st.number_input("Largura (px)", min_value=100, max_value=4000, value=st.session_state.largura_imagem)
         with col_h:
-            st.session_state.altura_imagem = st.number_input("Altura (px)", min_value=100, max_value=2000, value=st.session_state.altura_imagem)
+            st.session_state.altura_imagem = st.number_input("Altura (px)", min_value=100, max_value=4000, value=st.session_state.altura_imagem)
     
     st.subheader("3. Configurações do Logo")
     st.session_state.largura_logo = st.slider("Largura do Logo", 100, 800, st.session_state.largura_logo)
@@ -167,12 +197,22 @@ with col1:
     
     st.info(f"A fonte atual é de {st.session_state.tamanho_fonte} pixels com espaçamento de {st.session_state.fator_espacamento}x")
     
+    # Configurações avançadas de qualidade
+    st.subheader("6. Configurações de Qualidade")
+    st.session_state.qualidade_jpeg = st.slider("Qualidade de Exportação (%)", 50, 100, st.session_state.qualidade_jpeg)
+    
+    # Opção para qualidade da prévia
+    st.session_state.qualidade_preview = st.radio(
+        "Qualidade da Prévia:",
+        options=["Padrão", "Alta"],
+        index=1 if st.session_state.qualidade_preview == "Alta" else 0,
+        help="Alta qualidade pode consumir mais recursos"
+    )
+    
     if st.button("Atualizar Prévia"):
         st.session_state.atualizar_preview = True
     
-    st.session_state.qualidade_jpeg = st.slider("Qualidade da Imagem (%)", 50, 100, st.session_state.qualidade_jpeg)
-    
-    st.subheader("6. Frases sobre a Empresa")
+    st.subheader("7. Frases sobre a Empresa")
     frases = []
     for i in range(3):
         frase = st.text_input(f"Frase {i+1}", key=f"frase_{i}")
@@ -207,6 +247,7 @@ with col2:
             st.error("Por favor, insira pelo menos uma frase.")
         else:
             try:
+                # Carrega o plano de fundo na melhor qualidade possível
                 plano_de_fundo = Image.open(BACKGROUND_IMAGE)
                 
                 frases_por_logo = {}
@@ -221,8 +262,9 @@ with col2:
                 
                 if len(logos_files) > 1:
                     with tempfile.NamedTemporaryFile(delete=False, suffix='.zip') as temp_zip:
-                        with zipfile.ZipFile(temp_zip.name, 'w') as zf:
+                        with zipfile.ZipFile(temp_zip.name, 'w', zipfile.ZIP_DEFLATED) as zf:
                             for i, logo_file in enumerate(logos_files):
+                                # Carrega cada logo com a melhor qualidade possível
                                 logo = Image.open(logo_file)
                                 nome_logo = Path(logo_file.name).stem
                                 frases_atuais = frases
@@ -234,7 +276,13 @@ with col2:
                                 
                                 resultado = processar_imagem(plano_de_fundo, logo, frases_atuais)
                                 img_buffer = io.BytesIO()
-                                resultado.save(img_buffer, format="JPEG", quality=st.session_state.qualidade_jpeg)
+                                resultado.save(
+                                    img_buffer, 
+                                    format="JPEG", 
+                                    quality=st.session_state.qualidade_jpeg,
+                                    optimize=True,
+                                    subsampling=0
+                                )
                                 zf.writestr(f"{nome_logo}_resultante.jpg", img_buffer.getvalue())
                     
                     with open(temp_zip.name, "rb") as f:
@@ -271,7 +319,9 @@ with col2:
             primeiro_logo = Image.open(logos_files[0])
             frases_preview = frases if frases else ["Exemplo de frase 1", "Exemplo de frase 2", "Exemplo de frase 3"]
             
+            # Usa alta qualidade para a prévia se selecionado
             preview = processar_imagem(plano_de_fundo_preview, primeiro_logo, frases_preview)
+            
             st.image(preview, caption="Visualização em Tempo Real", use_column_width=True)
             
             largura_bg, altura_bg = preview.size
@@ -279,22 +329,24 @@ with col2:
             y_pos = (altura_bg - st.session_state.altura_logo) // 2 - st.session_state.deslocamento_y
             
             st.info(f"Posição do logo: X={x_pos}px, Y={y_pos}px | Tamanho da fonte: {st.session_state.tamanho_fonte}px | Espaçamento: {st.session_state.fator_espacamento}x")
+            st.info(f"Qualidade de exportação: {st.session_state.qualidade_jpeg}% | Prévia: {st.session_state.qualidade_preview}")
         except Exception as e:
             st.warning(f"Erro na visualização: {str(e)}")
 
 with st.expander("Instruções de Uso"):
     st.markdown("""
     ### Requisito Obrigatório:
-    - Coloque um arquivo chamado **fundo.jpg** na mesma pasta do aplicativo
+    - Coloque um arquivo chamado **Fundo.jpg** na mesma pasta do aplicativo
     
     ### Como usar:
-    1. Prepare seu arquivo fundo.jpg (1080x108px recomendado)
+    1. Prepare seu arquivo Fundo.jpg (1080x1080px recomendado)
     2. Faça upload dos logos em PNG com transparência
     3. Ajuste o tamanho final da imagem se necessário
     4. Configure tamanho e posição do logo
     5. Ajuste fonte e espaçamento das frases
-    6. Adicione até 3 frases
-    7. Clique em "Processar Imagens"
+    6. Configure a qualidade de exportação (95-100% para melhor resultado)
+    7. Adicione até 3 frases
+    8. Clique em "Processar Imagens"
     
     ### Formato para Frases Personalizadas:
     ```
@@ -302,8 +354,17 @@ with st.expander("Instruções de Uso"):
     NomeDoLogo2: Frase 1 | Frase 2 | Frase 3
     ```
     
-    ### Dicas:
-    - Logos devem ter fundo transparente
-    - Use a prévia para ajustes precisos
-    - Qualidade de 85-95% geralmente é ideal
+    ### Dicas para Melhor Qualidade:
+    - Use arquivos de origem de alta resolução
+    - Defina qualidade de exportação para 95% ou superior
+    - Evite redimensionar imagens para tamanhos muito menores
+    - Logos devem ter fundo transparente (PNG)
+    - Se disponível, use a opção de prévia de alta qualidade
+    """)
+    
+    st.markdown("### Configurações Recomendadas para Alta Qualidade:")
+    st.code("""
+    - Qualidade de Exportação: 95-100%
+    - Tamanho da Imagem: Deixe no tamanho original se possível 
+    - Formato do Logo: PNG com alta resolução e fundo transparente
     """)
