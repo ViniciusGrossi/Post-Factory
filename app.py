@@ -9,7 +9,7 @@ from pathlib import Path
 
 # Configurações do aplicativo
 st.set_page_config(page_title="Gerador de Posts em Massa", layout="wide")
-BACKGROUND_IMAGE = "Fundo.jpg"
+BACKGROUND_IMAGE = "Fundo.jpeg"
 
 def carregar_fonte(tamanho=30):
     """Tenta carregar a fonte Nexa Extra Bold ou usa uma fonte padrão disponível"""
